@@ -26,21 +26,17 @@ def setup_and_test_session(
     Returns:
         requests.Session: Authenticated session if successful, None otherwise
     """
-    # Use provided auth_method or prompt user interactively
     if auth_method is None:
         auth_method = select_auth_method()
 
-    # Extract cookies based on selected method
     if auth_method == "file":
         session = load_cookies_from_file(cookies_file)
     else:
-        # auth_method is the browser name ('firefox', 'chrome', or 'chromium')
         session = extract_browser_cookies(auth_method)
     
     if not session:
         return None
 
-    # Test API connection
     if not test_api_connection(session):
         return None
 
@@ -57,10 +53,9 @@ def test_api_connection(session: requests.Session) -> bool:
     Returns:
         bool: True if connection works, False otherwise
     """
-    print("Teste API-Verbindung...")
+    print("Testing API connection...")
 
     try:
-        # Test the tickets API endpoint
         response = session.get(
             f"{LidlConfig.get_tickets_url()}?country={LidlConfig.get_country_code()}&page=1",
             timeout=LidlConfig.DEFAULT_TIMEOUT,
@@ -69,29 +64,25 @@ def test_api_connection(session: requests.Session) -> bool:
 
         data = response.json()
         if "items" in data and len(data["items"]) > 0:
-            print(
-                f"✓ API-Verbindung erfolgreich! {data['totalCount']} Kassenbons gefunden"
-            )
+            print(f"✓ API connection successful! {data['totalCount']} receipts found")
             return True
         else:
-            print("⚠ API-Antwort enthält keine Kassenbons")
+            print("⚠ API response contains no receipts")
             return False
 
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 401:
-            print("✗ API-Verbindung fehlgeschlagen: Nicht autorisiert (401)")
+            print("✗ API connection failed: Unauthorised (401)")
+            print("Please ensure you are logged in to Lidl in your browser.")
             print(
-                "Bitte stelle sicher, dass du in deinem Browser bei Lidl angemeldet bist."
-            )
-            print(
-                f"Öffne {LidlConfig.get_base_url()} im Browser und melde dich an, bevor du das Programm ausführst."
+                f"Open {LidlConfig.get_base_url()} in your browser and sign in before running this program."
             )
         else:
-            print(f"✗ API-Verbindungsfehler ({e.response.status_code}): {e}")
+            print(f"✗ API connection error ({e.response.status_code}): {e}")
         return False
     except requests.exceptions.RequestException as e:
-        print(f"✗ API-Verbindungsfehler: {e}")
+        print(f"✗ API connection error: {e}")
         return False
     except json.JSONDecodeError as e:
-        print(f"✗ JSON-Decodierungsfehler: {e}")
+        print(f"✗ JSON decode error: {e}")
         return False

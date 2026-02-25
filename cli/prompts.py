@@ -8,16 +8,16 @@ def select_auth_method() -> str:
     Returns:
         str: 'file' for cookie file, or browser name ('firefox', 'chrome', or 'chromium')
     """
-    print("\n=== Authentifizierungs-Methode ===")
-    print("Wie möchten Sie sich authentifizieren?")
-    print("1. Firefox Browser (muss geöffnet sein)")
-    print("2. Chrome Browser (muss geöffnet sein)")
-    print("3. Chromium Browser (muss geöffnet sein)")
-    print("4. Cookie-Datei (muss cookies enthalten)")
+    print("\n=== Authentication Method ===")
+    print("How would you like to authenticate?")
+    print("1. Firefox browser (must be open and logged in)")
+    print("2. Chrome browser (must be open and logged in)")
+    print("3. Chromium browser (must be open and logged in)")
+    print("4. Cookie file (must contain valid cookies)")
 
     while True:
         try:
-            choice = input("\nWähle eine Option (1-4): ").strip()
+            choice = input("\nChoose an option (1-4): ").strip()
 
             if choice == "1":
                 return "firefox"
@@ -28,10 +28,10 @@ def select_auth_method() -> str:
             elif choice == "4":
                 return "file"
             else:
-                print("Ungültige Eingabe. Bitte wähle 1, 2, 3 oder 4.")
+                print("Invalid input. Please choose 1, 2, 3 or 4.")
 
         except KeyboardInterrupt:
-            print("\n\nAuthentifizierungs-Auswahl abgebrochen.")
+            print("\n\nAuthentication selection cancelled.")
             return "firefox"  # Default fallback
 
 
@@ -43,22 +43,22 @@ def select_browser() -> str:
     Returns:
         str: Browser name ('firefox' or 'chrome')
     """
-    print("\n=== Browser-Auswahl ===")
-    print("Aus welchem Browser möchten Sie die Anmeldedaten extrahieren?")
+    print("\n=== Browser Selection ===")
+    print("Which browser would you like to extract credentials from?")
     print("1. Firefox")
     print("2. Chrome")
 
     while True:
         try:
-            choice = input("\nWähle einen Browser (1-2): ").strip()
+            choice = input("\nChoose a browser (1-2): ").strip()
 
             if choice == "1":
                 return "firefox"
             elif choice == "2":
                 return "chrome"
             else:
-                print("Ungültige Eingabe. Bitte wähle 1 oder 2.")
+                print("Invalid input. Please choose 1 or 2.")
 
         except KeyboardInterrupt:
-            print("\n\nBrowser-Auswahl abgebrochen.")
+            print("\n\nBrowser selection cancelled.")
             return "firefox"  # Default fallback

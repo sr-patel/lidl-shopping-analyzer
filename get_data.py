@@ -10,7 +10,7 @@ Usage:
     python get_data.py initial --browser firefox   # Non-interactive initial setup
     python get_data.py update --browser chromium   # Non-interactive update
     python get_data.py initial --cookies-file cookies.json  # Use cookie file
-    python get_data.py update --country bg --browser chromium  # Bulgaria
+    python get_data.py update --country de --browser chromium  # Germany
 """
 
 import argparse

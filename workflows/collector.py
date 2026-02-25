@@ -22,10 +22,9 @@ def collect_all_receipt_ids(session: requests.Session) -> List[str]:
     all_receipt_ids = []
     page = 1
 
-    print("Sammle alle Kassenbon-IDs mit digitalem Kassenbon über API...")
+    print("Collecting all receipt IDs with digital receipts via API...")
 
     while True:
-        # Get tickets for current page
         tickets_data = get_tickets_page(session, page)
 
         if not tickets_data or "items" not in tickets_data:
@@ -36,7 +35,6 @@ def collect_all_receipt_ids(session: requests.Session) -> List[str]:
         if not tickets:
             break
 
-        # Extract receipt IDs from tickets (only those with HTML documents)
         for ticket in tickets:
             if isinstance(ticket, dict):
                 if "ticket" in ticket:
@@ -52,7 +50,6 @@ def collect_all_receipt_ids(session: requests.Session) -> List[str]:
 
         page += 1
 
-        # Check if we have more pages
         total_count = tickets_data.get("totalCount", 0)
         page_size = tickets_data.get("size", 10)
         total_pages = (total_count + page_size - 1) // page_size
@@ -60,7 +57,7 @@ def collect_all_receipt_ids(session: requests.Session) -> List[str]:
         if page > total_pages:
             break
 
-    print(f"Gefunden: {len(all_receipt_ids)} Kassenbon-IDs")
+    print(f"Found: {len(all_receipt_ids)} receipt IDs")
     return all_receipt_ids
 
 
@@ -77,36 +74,30 @@ def process_all_tickets(session: requests.Session) -> Tuple[int, int, int]:
     processed_count = 0
     skipped_count = 0
 
-    # Load existing receipts to avoid duplicates
     existing_ids, _ = load_existing_receipts()
 
-    # Collect all receipt IDs first
     all_receipt_ids = collect_all_receipt_ids(session)
 
-    print(f"Zu verarbeitende Kassenbons: {len(all_receipt_ids)}")
-    print(f"Bereits vorhandene: {len(existing_ids)}")
+    print(f"Receipts to process: {len(all_receipt_ids)}")
+    print(f"Already stored: {len(existing_ids)}")
 
-    # Filter out already processed receipts
     new_receipt_ids = [rid for rid in all_receipt_ids if rid not in existing_ids]
 
-    print(f"Neue Kassenbons zu verarbeiten: {len(new_receipt_ids)}")
+    print(f"New receipts to process: {len(new_receipt_ids)}")
 
-    # Process each new receipt
     for i, receipt_id in enumerate(new_receipt_ids, 1):
-        print(f"Verarbeite Kassenbon {i}/{len(new_receipt_ids)}: {receipt_id}")
+        print(f"Processing receipt {i}/{len(new_receipt_ids)}: {receipt_id}")
 
-        # Get receipt details and HTML
         receipt_data = get_receipt_details_and_html(session, receipt_id)
 
         if receipt_data and receipt_data["items"]:
             add_receipt_to_json(receipt_data)
             processed_count += 1
-            print(f"✓ Verarbeitet: {len(receipt_data['items'])} Artikel")
+            print(f"✓ Processed: {len(receipt_data['items'])} items")
         else:
-            print("⚠ Fehler beim Verarbeiten")
+            print("⚠ Failed to process receipt")
             skipped_count += 1
 
-        # Add pause between requests to be respectful
         time.sleep(LidlConfig.REQUEST_DELAY)
 
     return processed_count, skipped_count, len(all_receipt_ids) // 10 + 1

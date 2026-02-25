@@ -9,7 +9,7 @@ class LidlConfig:
     COOKIES_JSON_FILE = "lidl_cookies.json"
 
     # Country settings (can be changed via set_country)
-    COUNTRY = "de"
+    COUNTRY = "gb"
 
     # Request settings
     DEFAULT_TIMEOUT = 15
@@ -22,10 +22,21 @@ class LidlConfig:
     # API settings
     DEFAULT_PAGE_SIZE = 10
 
+    # Countries that use a non-standard TLD (not lidl.<country>)
+    _DOMAIN_OVERRIDES = {
+        "gb": "lidl.co.uk",
+    }
+
+    # Countries whose language code differs from the <country>-<COUNTRY> default
+    _LANGUAGE_OVERRIDES = {
+        "gb": "en-GB",
+    }
+
     @classmethod
     def get_base_url(cls) -> str:
         """Get the base URL for the current country."""
-        return f"https://www.lidl.{cls.COUNTRY}"
+        domain = cls.get_cookie_domain()
+        return f"https://www.{domain}"
 
     @classmethod
     def get_tickets_url(cls) -> str:
@@ -39,18 +50,20 @@ class LidlConfig:
 
     @classmethod
     def get_country_code(cls) -> str:
-        """Get the country code in uppercase (e.g., 'DE', 'BG')."""
+        """Get the country code in uppercase (e.g., 'GB', 'DE', 'BG')."""
         return cls.COUNTRY.upper()
 
     @classmethod
     def get_language_code(cls) -> str:
-        """Get the language code (e.g., 'de-DE', 'bg-BG')."""
-        return f"{cls.COUNTRY}-{cls.COUNTRY.upper()}"
+        """Get the language code (e.g., 'en-GB', 'de-DE', 'bg-BG')."""
+        return cls._LANGUAGE_OVERRIDES.get(
+            cls.COUNTRY, f"{cls.COUNTRY}-{cls.COUNTRY.upper()}"
+        )
 
     @classmethod
     def get_cookie_domain(cls) -> str:
-        """Get the domain for cookie extraction (e.g., 'lidl.de', 'lidl.bg')."""
-        return f"lidl.{cls.COUNTRY}"
+        """Get the domain for cookie extraction (e.g., 'lidl.co.uk', 'lidl.de')."""
+        return cls._DOMAIN_OVERRIDES.get(cls.COUNTRY, f"lidl.{cls.COUNTRY}")
 
     @classmethod
     def set_country(cls, country: str) -> None:
@@ -58,6 +71,6 @@ class LidlConfig:
         Set the country and update all derived settings.
 
         Args:
-            country: Two-letter country code (e.g., 'de', 'bg', 'nl')
+            country: Two-letter country code (e.g., 'gb', 'de', 'nl')
         """
         cls.COUNTRY = country.lower()

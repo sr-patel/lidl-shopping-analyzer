@@ -4,20 +4,30 @@ import re
 from typing import List, Dict, Any
 from bs4 import BeautifulSoup
 
+# Price pattern: accepts both comma and dot as decimal separator
+_PRICE_RE = re.compile(r"^\d+[.,]\d+$")
+
+
+def _normalise_amount(value: str) -> float:
+    """Convert a price string with either ',' or '.' decimal separator to float."""
+    if "," in value and "." in value:
+        if value.rfind(".") > value.rfind(","):
+            return float(value.replace(",", ""))
+        else:
+            return float(value.replace(".", "").replace(",", "."))
+    return float(value.replace(",", "."))
+
 
 def extract_receipt_items_from_html(soup: BeautifulSoup) -> List[Dict[str, Any]]:
-    """Extract items from receipt using the exact logic from the provided code snippet."""
+    """Extract items from receipt HTML."""
     items = []
     try:
-        # Find all article spans (they contain data-art-* attributes)
         article_spans = soup.find_all("span", class_="article")
 
         if not article_spans:
-            print(f"Keine Artikel-Spans gefunden")
+            print("No article spans found")
             return items
 
-        # Group spans by article ID and description to handle duplicates
-        # This handles cases where same article ID appears with different descriptions
         items_by_id_and_desc = {}
         for span in article_spans:
             art_id = span.get("data-art-id")
@@ -28,13 +38,10 @@ def extract_receipt_items_from_html(soup: BeautifulSoup) -> List[Dict[str, Any]]
                     items_by_id_and_desc[key] = []
                 items_by_id_and_desc[key].append(span)
 
-        # Process each article
         for art_id_and_desc, spans in items_by_id_and_desc.items():
             try:
-                # Get the first span (should contain all the data attributes)
                 main_span = spans[0]
 
-                # Extract item details from data attributes
                 art_description = main_span.get("data-art-description", "")
                 art_quantity = main_span.get("data-art-quantity", "1")
                 unit_price = main_span.get("data-unit-price", "")
@@ -42,22 +49,17 @@ def extract_receipt_items_from_html(soup: BeautifulSoup) -> List[Dict[str, Any]]
                 if not art_description or not unit_price:
                     continue
 
-                # Extract total price from span text - look for the bold price
-                total_price_text = unit_price  # Default to unit price
+                total_price_text = unit_price
                 for span in spans:
-                    # Check if this span has the css_bold class (indicating it's the total price)
                     span_class = span.get("class", [])
                     if "css_bold" in span_class:
                         span_text = span.get_text().strip()
-                        # Look for price pattern (digits,digits)
-                        if re.match(r"^\d+,\d+$", span_text):
-                            # Check if this is likely the total price (not unit price)
+                        if _PRICE_RE.match(span_text):
                             try:
-                                price_val = float(span_text.replace(",", "."))
-                                unit_val = float(unit_price.replace(",", "."))
-                                qty_val = float(art_quantity.replace(",", "."))
+                                price_val = _normalise_amount(span_text)
+                                unit_val = _normalise_amount(unit_price)
+                                qty_val = _normalise_amount(art_quantity)
 
-                                # If this matches the expected total, use it
                                 expected_total = unit_val * qty_val
                                 if abs(price_val - expected_total) < 0.01:
                                     total_price_text = span_text
@@ -65,24 +67,13 @@ def extract_receipt_items_from_html(soup: BeautifulSoup) -> List[Dict[str, Any]]
                             except (ValueError, AttributeError):
                                 pass
 
-                # Determine unit (kg or stk) from text content
-                unit = "stk"
+                # Determine unit from span text content
+                unit = "each"
                 for span in spans:
                     span_text = span.get_text()
-                    if "kg" in span_text or "EUR/kg" in span_text:
+                    if "kg" in span_text or "/kg" in span_text:
                         unit = "kg"
                         break
-
-                # Convert values for calculation
-                try:
-                    quantity = float(art_quantity.replace(",", "."))
-                except (ValueError, AttributeError):
-                    quantity = 1.0
-
-                try:
-                    price = float(unit_price.replace(",", "."))
-                except (ValueError, AttributeError):
-                    price = 0.0
 
                 items.append(
                     {
@@ -94,9 +85,9 @@ def extract_receipt_items_from_html(soup: BeautifulSoup) -> List[Dict[str, Any]]
                 )
 
             except Exception as e:
-                print(f"Fehler beim Extrahieren eines Artikels: {e}")
+                print(f"Error extracting item: {e}")
 
     except Exception as e:
-        print(f"Artikel nicht gefunden: {e}")
+        print(f"Items not found: {e}")
 
     return items

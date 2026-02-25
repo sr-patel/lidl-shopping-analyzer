@@ -8,43 +8,43 @@ def main() -> None:
     Main function that provides a simple menu for choosing between
     initial setup and update modes.
     """
-    print("=== Willkommen, welche Kassenbons möchtest du hinzufügen? ===")
-    print("1. Initial Setup (Alle Kassenbons)")
-    print("2. Update (Nur neue Kassenbons hinzufügen)")
-    print("3. Beenden")
+    print("=== Welcome - which receipts would you like to add? ===")
+    print("1. Initial Setup (all receipts)")
+    print("2. Update (only add new receipts)")
+    print("3. Exit")
 
     while True:
         try:
-            choice = input("\nWähle eine Option (1-3): ").strip()
+            choice = input("\nChoose an option (1-3): ").strip()
 
             if choice == "1":
-                print("\nStarte Initial Setup...")
+                print("\nStarting Initial Setup...")
                 success = initial_setup()
                 if success:
-                    print("✓ Initial Setup erfolgreich abgeschlossen!")
+                    print("✓ Initial Setup completed successfully!")
                 else:
-                    print("✗ Initial Setup fehlgeschlagen!")
+                    print("✗ Initial Setup failed!")
                 break
 
             elif choice == "2":
-                print("\nStarte Update...")
+                print("\nStarting Update...")
                 success = update_data()
                 if success:
-                    print("✓ Update erfolgreich abgeschlossen!")
+                    print("✓ Update completed successfully!")
                 else:
-                    print("✗ Update fehlgeschlagen!")
+                    print("✗ Update failed!")
                 break
 
             elif choice == "3":
-                print("Auf Wiedersehen!")
+                print("Goodbye!")
                 break
 
             else:
-                print("Ungültige Eingabe. Bitte wähle 1, 2 oder 3.")
+                print("Invalid input. Please choose 1, 2 or 3.")
 
         except KeyboardInterrupt:
-            print("\n\nProgramm unterbrochen.")
+            print("\n\nProgram interrupted.")
             break
         except Exception as e:
-            print(f"Ein Fehler ist aufgetreten: {e}")
+            print(f"An error occurred: {e}")
             break

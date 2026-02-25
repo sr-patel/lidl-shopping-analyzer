@@ -23,45 +23,40 @@ def load_cookies_from_file(file_path: Optional[str] = None) -> Optional[requests
     """
     if file_path is None:
         file_path = LidlConfig.COOKIES_JSON_FILE
-    
-    print(f"Lade Cookies aus Datei: {file_path}...")
+
+    cookie_domain = LidlConfig.get_cookie_domain()
+
+    print(f"Loading cookies from file: {file_path}...")
     
     try:
-        # Check if file exists
         if not os.path.exists(file_path):
-            print(f"✗ Cookie-Datei nicht gefunden: {file_path}")
-            print(f"\nBitte erstelle eine Datei '{file_path}' mit deinen Cookies.")
-            print("Du kannst Cookies exportieren mit Browser-Erweiterungen wie:")
-            print("  - EditThisCookie (exportiere als JSON)")
+            print(f"✗ Cookie file not found: {file_path}")
+            print(f"\nPlease create a file '{file_path}' containing your cookies.")
+            print("You can export cookies using browser extensions such as:")
+            print("  - EditThisCookie (export as JSON)")
             print("  - Cookie-Editor")
-            print("\nDie Datei sollte ein JSON-Array von Cookie-Objekten enthalten.")
+            print("\nThe file should contain a JSON array of cookie objects.")
             return None
         
-        # Load the JSON file
         with open(file_path, 'r', encoding='utf-8') as f:
             cookies_data = json.load(f)
         
-        # Handle both array and object formats
         if isinstance(cookies_data, dict) and 'cookies' in cookies_data:
             cookies_list = cookies_data['cookies']
         elif isinstance(cookies_data, list):
             cookies_list = cookies_data
         else:
-            print("✗ Ungültiges Cookie-Dateiformat. Erwarte ein JSON-Array oder Objekt mit 'cookies'-Feld.")
+            print("✗ Invalid cookie file format. Expected a JSON array or an object with a 'cookies' field.")
             return None
         
-        # Create a requests session
         session = requests.Session()
         
-        # Add cookies to session
         cookie_count = 0
         for cookie_data in cookies_list:
-            # Skip cookies not for lidl.de domain
             domain = cookie_data.get('domain', '')
-            if 'lidl.de' not in domain:
+            if cookie_domain not in domain:
                 continue
             
-            # Create cookie with available fields
             session.cookies.set_cookie(
                 requests.cookies.create_cookie(
                     domain=cookie_data.get('domain', ''),
@@ -75,16 +70,16 @@ def load_cookies_from_file(file_path: Optional[str] = None) -> Optional[requests
             cookie_count += 1
         
         if cookie_count == 0:
-            print("✗ Keine Cookies für lidl.de in der Datei gefunden.")
+            print(f"✗ No cookies found for {cookie_domain} in the file.")
             return None
         
-        print(f"✓ Erfolgreich {cookie_count} Cookies aus Datei geladen")
+        print(f"✓ Successfully loaded {cookie_count} cookies from file")
         return session
     
     except json.JSONDecodeError as e:
-        print(f"✗ Fehler beim Parsen der Cookie-Datei: {e}")
-        print("Bitte stelle sicher, dass die Datei gültiges JSON enthält.")
+        print(f"✗ Failed to parse cookie file: {e}")
+        print("Please ensure the file contains valid JSON.")
         return None
     except Exception as e:
-        print(f"✗ Fehler beim Laden der Cookie-Datei: {e}")
+        print(f"✗ Failed to load cookie file: {e}")
         return None

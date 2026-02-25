@@ -5,113 +5,141 @@ from typing import Dict, Any
 from bs4 import BeautifulSoup
 
 
+# Text patterns for the "amount to pay" line, covering both English (UK) and German receipts
+_TO_PAY_PATTERNS = ["to pay", "amount due", "amount payable", "total to pay", "zu zahlen"]
+
+# Text patterns for regular (non-Lidl-Plus) savings lines
+# Exclusion list prevents double-counting Lidl Plus lines
+_SAVINGS_INCLUDE_PATTERNS = ["price advantage", "savings", "saving", "preisvorteil"]
+_DISCOUNT_INCLUDE_PATTERNS = ["discount", "reduction", "rabatt"]
+_SAVINGS_EXCLUDE_PATTERNS = ["lidl plus discount", "lidl plus saving", "lidl plus rabatt", "total savings"]
+
+# Patterns for the Lidl Plus savings summary box
+_LIDL_PLUS_SAVED_PATTERNS = [
+    r"(\d+[.,]\d+)\s+GBP\s+saved",
+    r"(\d+[.,]\d+)\s+EUR\s+saved",
+    r"(\d+[.,]\d+)\s+gespart",
+    r"saved\s+(\d+[.,]\d+)",
+]
+
+# Amount pattern: accepts both comma and dot as decimal separator
+_AMOUNT_RE = re.compile(r"-(\d+[.,]\d+)")
+_PRICE_RE = re.compile(r"^\d+[.,]\d+$")
+
+
+def _normalise_amount(value: str) -> float:
+    """Convert a price string with either ',' or '.' decimal separator to float."""
+    # If both separators are present, the last one is the decimal separator
+    if "," in value and "." in value:
+        # e.g. "1,234.56" (UK thousands) or "1.234,56" (DE thousands)
+        if value.rfind(".") > value.rfind(","):
+            return float(value.replace(",", ""))
+        else:
+            return float(value.replace(".", "").replace(",", "."))
+    return float(value.replace(",", "."))
+
+
+def _format_amount(value: float) -> str:
+    """Format a float as a string with '.' decimal separator (UK style)."""
+    return f"{value:.2f}"
+
+
 def extract_basic_receipt_info_from_html(
     soup: BeautifulSoup, receipt_id: str, receipt_date: str, store: str
 ) -> Dict[str, Any]:
-    """Extract basic receipt information using the exact logic from the provided code snippet."""
+    """Extract basic receipt information from the HTML receipt."""
     receipt_data = {
         "id": receipt_id,
         "purchase_date": receipt_date,
-        "total_price": None,  # Final amount actually paid
-        "total_price_no_saving": None,  # Sum of all items without any savings
-        "saved_amount": None,  # Regular savings (Preisvorteil, Rabatt)
-        "saved_pfand": None,  # Pfand/deposit returns
-        "lidlplus_saved_amount": None,  # Lidl Plus savings
+        "total_price": None,
+        "total_price_no_saving": None,
+        "saved_amount": None,
+        "saved_pfand": None,
+        "lidlplus_saved_amount": None,
         "store": store,
         "items": [],
     }
 
-    # Extract total price (amount to pay - "zu zahlen")
+    # --- Total price ("amount to pay") ---
     try:
-        # Method 1: Look for "zu zahlen" line and extract the amount from the same line
         purchase_summary_elements = soup.find_all(id=re.compile(r"^purchase_summary_"))
         for element in purchase_summary_elements:
-            element_text = element.get_text().strip()
-            if "zu zahlen" in element_text:
-                # Find all spans with bold class in the same parent to get the amount
+            element_text = element.get_text().strip().lower()
+            if any(pattern in element_text for pattern in _TO_PAY_PATTERNS):
                 parent = element.parent
                 amount_spans = parent.find_all("span", class_="css_bold")
                 for span in amount_spans:
                     span_text = span.get_text().strip()
-                    # Look for a price pattern (digits,digits)
-                    if re.match(r"^\d+,\d+$", span_text):
+                    if _PRICE_RE.match(span_text):
                         receipt_data["total_price"] = span_text
                         break
                 if receipt_data["total_price"]:
                     break
-    except:
-        # Fallback: Try the old method from purchase_tender_information_5
+    except Exception:
         try:
             total_element = soup.find(id="purchase_tender_information_5")
             if total_element:
                 parts = total_element.get_text().strip().split()
                 if len(parts) >= 2:
                     receipt_data["total_price"] = parts[-2]
-        except:
+        except Exception:
             pass
 
-    # Extract saved amount (only "Preisvorteil" and "Rabatt" lines, excluding "Lidl Plus Rabatt")
+    # --- Regular savings (price advantages / discounts, excluding Lidl Plus) ---
     try:
         total_regular_savings = 0.0
+        purchase_list = soup.find("span", class_="purchase_list")
+        if purchase_list:
+            purchase_text = purchase_list.get_text()
+            lines = purchase_text.split("\n")
+            for line in lines:
+                line_lower = line.lower()
+                # Skip lines that are Lidl Plus savings
+                if any(excl in line_lower for excl in _SAVINGS_EXCLUDE_PATTERNS):
+                    continue
+                matched = False
+                if any(pat in line_lower for pat in _SAVINGS_INCLUDE_PATTERNS):
+                    matched = True
+                elif any(pat in line_lower for pat in _DISCOUNT_INCLUDE_PATTERNS):
+                    matched = True
+                if matched:
+                    amount_match = _AMOUNT_RE.search(line)
+                    if amount_match:
+                        try:
+                            total_regular_savings += _normalise_amount(amount_match.group(1))
+                        except (ValueError, AttributeError):
+                            pass
 
-        # Get the purchase list text and search for discount lines
-        try:
-            purchase_list = soup.find("span", class_="purchase_list")
-            if purchase_list:
-                purchase_text = purchase_list.get_text()
-
-                # Find all discount lines and extract the amounts
-                lines = purchase_text.split("\n")
-                for line in lines:
-                    # Include "Preisvorteil" lines
-                    if "Preisvorteil" in line and "Gesamter" not in line:
-                        amount_match = re.search(r"-(\d+,\d+)", line)
-                        if amount_match:
-                            amount_str = amount_match.group(1)
-                            amount_float = float(amount_str.replace(",", "."))
-                            total_regular_savings += amount_float
-                    # Include "Rabatt" lines but exclude "Lidl Plus Rabatt"
-                    elif "Rabatt" in line and "Lidl Plus Rabatt" not in line:
-                        amount_match = re.search(r"-(\d+,\d+)", line)
-                        if amount_match:
-                            amount_str = amount_match.group(1)
-                            amount_float = float(amount_str.replace(",", "."))
-                            total_regular_savings += amount_float
-        except:
-            pass
-
-        # Set the saved_amount if we found any regular savings
         if total_regular_savings > 0:
-            receipt_data["saved_amount"] = f"{total_regular_savings:.2f}".replace(
-                ".", ","
-            )
-    except:
+            receipt_data["saved_amount"] = _format_amount(total_regular_savings)
+    except Exception:
         pass
 
-    # Extract Lidl Plus savings
+    # --- Lidl Plus savings ---
     try:
-        # Look for the "Mit Lidl Plus" box that shows "X,XX EUR gespart"
-        try:
-            # First, try to find the specific "EUR gespart" text in the VAT info section
-            vat_info_elements = soup.find_all("span", class_="vat_info")
-            for element in vat_info_elements:
-                element_text = element.get_text().strip()
-                if "EUR gespart" in element_text:
-                    # Extract the amount before "EUR gespart"
-                    amount_match = re.search(r"(\d+,\d+)\s+EUR gespart", element_text)
-                    if amount_match:
-                        receipt_data["lidlplus_saved_amount"] = amount_match.group(1)
-                        break
-        except:
-            # Fallback: search in the entire page for "EUR gespart"
-            try:
-                page_text = soup.get_text()
-                gespart_match = re.search(r"(\d+,\d+)\s+EUR gespart", page_text)
-                if gespart_match:
-                    receipt_data["lidlplus_saved_amount"] = gespart_match.group(1)
-            except:
-                pass
-    except:
+        vat_info_elements = soup.find_all("span", class_="vat_info")
+        for element in vat_info_elements:
+            element_text = element.get_text().strip()
+            for pattern in _LIDL_PLUS_SAVED_PATTERNS:
+                match = re.search(pattern, element_text, re.IGNORECASE)
+                if match:
+                    receipt_data["lidlplus_saved_amount"] = _format_amount(
+                        _normalise_amount(match.group(1))
+                    )
+                    break
+            if receipt_data["lidlplus_saved_amount"]:
+                break
+
+        if not receipt_data["lidlplus_saved_amount"]:
+            page_text = soup.get_text()
+            for pattern in _LIDL_PLUS_SAVED_PATTERNS:
+                match = re.search(pattern, page_text, re.IGNORECASE)
+                if match:
+                    receipt_data["lidlplus_saved_amount"] = _format_amount(
+                        _normalise_amount(match.group(1))
+                    )
+                    break
+    except Exception:
         pass
 
     return receipt_data

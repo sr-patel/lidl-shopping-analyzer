@@ -28,9 +28,9 @@ def add_receipt_to_json(receipt_data: Dict[str, Any]) -> None:
 
     save_receipts_to_json(existing_receipts)
 
-    action = "aktualisiert" if receipt_updated else "hinzugefügt"
+    action = "updated" if receipt_updated else "added"
     print(
-        f"Kassenbon {action}: {receipt_data['purchase_date']} - {receipt_data['total_price']}"
+        f"Receipt {action}: {receipt_data['purchase_date']} - {receipt_data['total_price']}"
     )
 
 

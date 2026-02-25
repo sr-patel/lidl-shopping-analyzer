@@ -30,9 +30,7 @@ def get_tickets_page(
 
         data = response.json()
 
-        # Handle different response structures
         if isinstance(data, list):
-            # Direct array of tickets
             return {
                 "items": data,
                 "page": page,
@@ -40,26 +38,23 @@ def get_tickets_page(
                 "totalCount": len(data),
             }
         elif isinstance(data, dict):
-            # Structured response with metadata
             return data
         else:
-            print(f"Unerwartete API-Antwort-Struktur für Seite {page}")
+            print(f"Unexpected API response structure for page {page}")
             return None
 
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 401:
-            print(f"✗ Nicht autorisiert beim Abrufen der Tickets-Seite {page}")
-            print(
-                "Bitte stelle sicher, dass du in deinem Browser bei Lidl angemeldet bist."
-            )
+            print(f"✗ Unauthorised when fetching tickets page {page}")
+            print("Please ensure you are logged in to Lidl in your browser.")
         else:
-            print(f"✗ HTTP-Fehler beim Abrufen der Tickets-Seite {page}: {e}")
+            print(f"✗ HTTP error fetching tickets page {page}: {e}")
         return None
     except requests.exceptions.RequestException as e:
-        print(f"✗ Fehler beim Abrufen der Tickets-Seite {page}: {e}")
+        print(f"✗ Error fetching tickets page {page}: {e}")
         return None
     except json.JSONDecodeError as e:
-        print(f"✗ JSON-Decodierungsfehler für Seite {page}: {e}")
+        print(f"✗ JSON decode error for page {page}: {e}")
         return None
 
 
@@ -85,30 +80,25 @@ def get_receipt_details_and_html(
 
         data = response.json()
 
-        # Extract ticket data from the response
         if "ticket" in data:
             ticket_data = data["ticket"]
         else:
             ticket_data = data
 
-        # Extract basic info
         receipt_date = ticket_data["date"][:10].replace("-", ".")
         total_amount = ticket_data["totalAmount"]
 
-        # Handle store info (could be nested or direct)
         if isinstance(ticket_data.get("store"), dict):
             store = ticket_data["store"].get("name", "Unknown")
         else:
             store = ticket_data.get("store", "Unknown")
 
-        # Get HTML content
         html_content = ticket_data.get("htmlPrintedReceipt", "")
 
         if not html_content:
-            print(f"  Kein HTML-Inhalt gefunden für receipt_id: {receipt_id}")
+            print(f"  No HTML content found for receipt_id: {receipt_id}")
             return None
 
-        # Parse the HTML receipt from the API
         parsed_data = parse_receipt_html(
             html_content, receipt_id, receipt_date, total_amount, store
         )
@@ -117,16 +107,14 @@ def get_receipt_details_and_html(
 
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 401:
-            print(f"  Nicht autorisiert beim Abrufen von receipt_id: {receipt_id}")
-            print(
-                "  Bitte stelle sicher, dass du in deinem Browser bei Lidl angemeldet bist."
-            )
+            print(f"  Unauthorised when fetching receipt_id: {receipt_id}")
+            print("  Please ensure you are logged in to Lidl in your browser.")
         else:
-            print(f"  HTTP-Fehler beim Abrufen: {e}")
+            print(f"  HTTP error fetching receipt: {e}")
         return None
     except requests.exceptions.RequestException as e:
-        print(f"  Fehler beim Abrufen: {e}")
+        print(f"  Error fetching receipt: {e}")
         return None
     except Exception as e:
-        print(f"  Unerwarteter Fehler: {e}")
+        print(f"  Unexpected error: {e}")
         return None
